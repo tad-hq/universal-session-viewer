@@ -1,0 +1,105 @@
+name: Feature Request
+description: Propose a new feature or enhancement
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to propose a feature! Please fill out the form below.
+
+        **Before submitting**, please:
+        - Search [existing issues](https://github.com/tadasv/universal-session-viewer/issues?q=is%3Aissue+label%3Aenhancement) and [discussions](https://github.com/tadasv/universal-session-viewer/discussions/categories/ideas) to avoid duplicates
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: |
+        Is your feature request related to a problem? Please describe.
+        A clear and concise description of what the problem is.
+      placeholder: I'm always frustrated when I have to manually find sessions in large projects...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: |
+        Describe the solution you'd like.
+        A clear and concise description of what you want to happen.
+      placeholder: |
+        Add a "Recent Sessions" section at the top of the sidebar that shows the 5 most recently accessed sessions across all projects.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: |
+        Describe any alternative solutions or features you've considered.
+        This helps us understand your thought process.
+      placeholder: |
+        - Could use search, but that requires knowing the session name
+        - Could sort by date, but that loses project grouping
+    validations:
+      required: false
+
+  - type: textarea
+    id: use-cases
+    attributes:
+      label: Use Cases
+      description: |
+        Who would benefit from this feature and how?
+        Describe specific scenarios where this would be helpful.
+      placeholder: |
+        1. Developers working on multiple projects who want to quickly return to recent work
+        2. Users who frequently switch between sessions throughout the day
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to your workflow?
+      options:
+        - Nice to have
+        - Would improve my workflow
+        - Important for my use case
+        - Critical blocker for adoption
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      description: Would you be willing to help implement this feature?
+      options:
+        - label: I would be willing to submit a PR for this feature
+          required: false
+        - label: I would be willing to help test this feature
+          required: false
+        - label: I would be willing to help document this feature
+          required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: |
+        Add any other context, mockups, or screenshots about the feature request here.
+        If you have examples from other tools, please share them.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched existing issues and discussions for this feature
+          required: true

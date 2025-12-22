@@ -1,0 +1,261 @@
+# Release Pipeline for Universal Session Viewer
+#
+# Triggers on version tags (v*.*.*)
+# Builds for macOS, Windows, and Linux
+# Creates GitHub release with all artifacts
+#
+# Required Secrets:
+#   - APPLE_ID: Apple Developer ID email
+#   - APPLE_ID_PASSWORD: App-specific password
+#   - APPLE_TEAM_ID: Apple Developer Team ID
+#   - CSC_LINK: Base64-encoded .p12 certificate
+#   - CSC_KEY_PASSWORD: Certificate password
+#   - GH_TOKEN: GitHub token (auto-provided)
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # Build Go backend for all platforms
+  build-go:
+    name: Build Go Backend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache-dependency-path: go-backend/go.sum
+
+      - name: Build all platforms
+        working-directory: go-backend
+        run: |
+          # macOS ARM64
+          GOOS=darwin GOARCH=arm64 go build -o ../bin/session-viewer-darwin-arm64 ./cmd/session-viewer
+          # macOS AMD64
+          GOOS=darwin GOARCH=amd64 go build -o ../bin/session-viewer-darwin-amd64 ./cmd/session-viewer
+          # Linux AMD64
+          GOOS=linux GOARCH=amd64 go build -o ../bin/session-viewer-linux-amd64 ./cmd/session-viewer
+          # Windows AMD64
+          GOOS=windows GOARCH=amd64 go build -o ../bin/session-viewer-windows-amd64.exe ./cmd/session-viewer
+
+      - name: Upload Go binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-binaries
+          path: bin/
+          retention-days: 1
+
+  # Build macOS (Universal)
+  build-macos:
+    name: Build macOS
+    runs-on: macos-latest
+    needs: build-go
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Download Go binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: go-binaries
+          path: bin/
+
+      - name: Make Go binaries executable
+        run: chmod +x bin/*
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Vite app
+        run: npm run build
+
+      - name: Build Electron (unsigned)
+        run: |
+          CSC_IDENTITY_AUTO_DISCOVERY=false \
+          SKIP_NOTARIZATION=true \
+          npx electron-builder --mac --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-artifacts
+          path: |
+            release/*.dmg
+            release/*.zip
+          retention-days: 1
+
+  # Build Windows
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    needs: build-go
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Download Go binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: go-binaries
+          path: bin/
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Vite app
+        run: npm run build
+
+      - name: Build Electron
+        run: npx electron-builder --win --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-artifacts
+          path: |
+            release/*.exe
+            release/*.zip
+          retention-days: 1
+
+  # Build Linux
+  build-linux:
+    name: Build Linux
+    runs-on: ubuntu-latest
+    needs: build-go
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Download Go binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: go-binaries
+          path: bin/
+
+      - name: Make Go binaries executable
+        run: chmod +x bin/*
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Vite app
+        run: npm run build
+
+      - name: Build Electron
+        run: npx electron-builder --linux --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-artifacts
+          path: |
+            release/*.AppImage
+            release/*.deb
+          retention-days: 1
+
+  # Create GitHub Release
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [build-macos, build-windows, build-linux]
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: List artifacts
+        run: |
+          echo "=== Downloaded artifacts ==="
+          find artifacts -type f -name "*" | head -50
+
+      - name: Extract release notes from CHANGELOG
+        id: changelog
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          # Extract notes for this version from CHANGELOG.md
+          if [ -f CHANGELOG.md ]; then
+            # Get content between this version and the next version header
+            NOTES=$(awk "/^## \[?$VERSION\]?/,/^## \[?[0-9]/" CHANGELOG.md | head -n -1 | tail -n +2)
+            if [ -n "$NOTES" ]; then
+              echo "notes<<EOF" >> $GITHUB_OUTPUT
+              echo "$NOTES" >> $GITHUB_OUTPUT
+              echo "EOF" >> $GITHUB_OUTPUT
+            else
+              echo "notes=Release $VERSION" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "notes=Release $VERSION" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Universal Session Viewer v${{ steps.changelog.outputs.version }}
+          body: ${{ steps.changelog.outputs.notes }}
+          draft: false
+          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+          files: |
+            artifacts/macos-artifacts/*.dmg
+            artifacts/macos-artifacts/*.zip
+            artifacts/windows-artifacts/*.exe
+            artifacts/windows-artifacts/*.zip
+            artifacts/linux-artifacts/*.AppImage
+            artifacts/linux-artifacts/*.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "## Release Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version**: ${{ steps.changelog.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Artifacts**:" >> $GITHUB_STEP_SUMMARY
+          find artifacts -type f -name "*" | while read f; do
+            echo "- $(basename $f)" >> $GITHUB_STEP_SUMMARY
+          done

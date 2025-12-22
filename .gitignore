@@ -1,0 +1,66 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+dist-electron/
+out/
+release/
+
+# Development
+.vite/
+.DS_Store
+*.log
+.env
+.env.local
+
+# Testing
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+benchmark-results.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+
+# Electron
+*.dmg
+*.zip
+*.exe
+*.AppImage
+*.deb
+
+# Build icons (keep iconset directory gitignored, but include final icons)
+build/icon.iconset/
+
+# Backup files
+*.bak
+
+# Personal documentation
+personal-docs/
+reference-cod/
+test-archive/
+.claude/
+
+# Internal documentation (not for public)
+CLAUDE.md
+agents/
+docs/bantplanning/
+*INVESTIGATION*.md
+*REPORT*.md
+*DIAGNOSTIC*.md
+
+# Compiled binaries (build fresh from source)
+bin/
+go-backend/session-viewer
+go-backend/coverage.out
+
+# Generated test data
+test/e2e/fixtures/test-claude-sessions/

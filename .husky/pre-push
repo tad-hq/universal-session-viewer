@@ -1,0 +1,28 @@
+echo "=========================================="
+echo "Running pre-push quality checks..."
+echo "=========================================="
+
+# Run full test suite before pushing
+echo ""
+echo "[1/2] Running tests..."
+npm test
+if [ $? -ne 0 ]; then
+  echo "ERROR: Tests failed. Push blocked."
+  exit 1
+fi
+echo "Tests passed"
+
+# Run build to ensure it compiles
+echo ""
+echo "[2/2] Running build check..."
+npm run build
+if [ $? -ne 0 ]; then
+  echo "ERROR: Build failed. Push blocked."
+  exit 1
+fi
+echo "Build passed"
+
+echo ""
+echo "=========================================="
+echo "All pre-push checks passed!"
+echo "=========================================="

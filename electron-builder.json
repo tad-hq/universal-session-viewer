@@ -1,0 +1,144 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.tadschnitzer.universal-session-viewer",
+  "productName": "Universal Session Viewer",
+  "copyright": "Copyright (c) 2024-2025 Tad Schnitzer",
+
+  "directories": {
+    "output": "release",
+    "buildResources": "build"
+  },
+
+  "files": [
+    "dist/**/*",
+    "src/electron/**/*",
+    "src/migrations/**/*",
+    "!src/electron/**/*.map",
+    "!**/*.ts",
+    "!**/*.tsx",
+    "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+    "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+    "!**/node_modules/*.d.ts",
+    "!**/node_modules/.bin"
+  ],
+
+  "extraMetadata": {
+    "main": "src/electron/main.js"
+  },
+
+  "mac": {
+    "category": "public.app-category.developer-tools",
+    "target": [
+      {
+        "target": "dmg",
+        "arch": ["arm64", "x64"]
+      }
+    ],
+    "icon": "build/icon.icns",
+    "hardenedRuntime": true,
+    "gatekeeperAssess": false,
+    "entitlements": "build/entitlements.mac.plist",
+    "entitlementsInherit": "build/entitlements.mac.inherit.plist",
+    "notarize": false,
+    "extraFiles": [
+      {
+        "from": "bin/session-viewer-darwin-arm64",
+        "to": "Resources/bin/session-viewer-darwin-arm64",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "bin/session-viewer-darwin-amd64",
+        "to": "Resources/bin/session-viewer-darwin-amd64",
+        "filter": ["**/*"]
+      }
+    ],
+    "extendInfo": {
+      "NSHighResolutionCapable": true,
+      "LSMinimumSystemVersion": "10.15.0",
+      "CFBundleDocumentTypes": [
+        {
+          "CFBundleTypeName": "JSONL Session File",
+          "CFBundleTypeRole": "Viewer",
+          "LSItemContentTypes": ["public.json"],
+          "LSHandlerRank": "Alternate"
+        }
+      ]
+    }
+  },
+
+  "dmg": {
+    "sign": false,
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "contents": [
+      {
+        "x": 130,
+        "y": 220
+      },
+      {
+        "x": 410,
+        "y": 220,
+        "type": "link",
+        "path": "/Applications"
+      }
+    ],
+    "window": {
+      "width": 540,
+      "height": 380
+    },
+    "backgroundColor": "#ffffff",
+    "title": "${productName} ${version}"
+  },
+
+  "afterSign": "scripts/notarize.js",
+
+  "publish": {
+    "provider": "github",
+    "owner": "tad-hq",
+    "repo": "universal-session-viewer",
+    "releaseType": "release"
+  },
+
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true
+  },
+
+  "linux": {
+    "target": ["AppImage", "deb"],
+    "category": "Development",
+    "maintainer": "Tad Schnitzer",
+    "extraFiles": [
+      {
+        "from": "bin/session-viewer-linux-amd64",
+        "to": "resources/bin/session-viewer-linux-amd64"
+      }
+    ]
+  },
+
+  "win": {
+    "target": ["nsis", "zip"],
+    "icon": "build/icon_1024.png",
+    "extraFiles": [
+      {
+        "from": "bin/session-viewer-windows-amd64.exe",
+        "to": "resources/bin/session-viewer-windows-amd64.exe"
+      }
+    ]
+  },
+
+  "electronDownload": {
+    "mirror": "https://github.com/electron/electron/releases/download/"
+  },
+
+  "buildDependenciesFromSource": true,
+
+  "npmRebuild": true,
+
+  "asar": {
+    "smartUnpack": true
+  },
+
+  "asarUnpack": ["**/node_modules/better-sqlite3/**/*"]
+}
