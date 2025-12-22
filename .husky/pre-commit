@@ -1,0 +1,69 @@
+echo "=========================================="
+echo "Running pre-commit quality checks..."
+echo "=========================================="
+
+# 1. TypeScript Type Check (fast, catches type errors)
+echo ""
+echo "[1/5] TypeScript type check..."
+npx tsc --noEmit
+if [ $? -ne 0 ]; then
+  echo "ERROR: TypeScript type check failed"
+  exit 1
+fi
+echo "TypeScript check passed"
+
+# 2. Check for debug console.log statements
+echo ""
+echo "[2/5] Checking for debug logging..."
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|tsx|js|jsx)$')
+if [ -n "$STAGED_FILES" ]; then
+  DEBUG_LOGS=$(echo "$STAGED_FILES" | xargs grep -l "console\.log.*\[DEBUG\|console\.log.*\[IPC\]\|console\.log.*\[.*Store\]" 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$DEBUG_LOGS" -gt "0" ]; then
+    echo "ERROR: Found debug console.log statements in staged files:"
+    echo "$STAGED_FILES" | xargs grep -l "console\.log.*\[DEBUG\|console\.log.*\[IPC\]\|console\.log.*\[.*Store\]"
+    exit 1
+  fi
+fi
+echo "No debug logging found"
+
+# 3. Check for agent comments
+echo ""
+echo "[3/5] Checking for agent comments..."
+if [ -n "$STAGED_FILES" ]; then
+  AGENT_COMMENTS=$(echo "$STAGED_FILES" | xargs grep -l "// Agent \|// Wave " 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$AGENT_COMMENTS" -gt "0" ]; then
+    echo "ERROR: Found agent attribution comments in staged files:"
+    echo "$STAGED_FILES" | xargs grep -l "// Agent \|// Wave "
+    exit 1
+  fi
+fi
+echo "No agent comments found"
+
+# 4. Check for 'any' types in TypeScript (src only, not tests)
+echo ""
+echo "[4/5] Checking for 'any' types..."
+STAGED_SRC_TS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^src/.*\.(ts|tsx)$')
+if [ -n "$STAGED_SRC_TS" ]; then
+  # Only check for explicit any types (: any or as any), exclude .d.ts and comments (// and /** */)
+  ANY_TYPES=$(echo "$STAGED_SRC_TS" | xargs grep -E ":\s*any\b|as\s+any\b" 2>/dev/null | grep -v ".d.ts" | grep -v "//.*any" | grep -v "\*.*any" | wc -l | tr -d ' ')
+  if [ "$ANY_TYPES" -gt "0" ]; then
+    echo "ERROR: Found 'any' type usage in staged source files:"
+    echo "$STAGED_SRC_TS" | xargs grep -nE ":\s*any\b|as\s+any\b" | grep -v ".d.ts" | grep -v "//.*any" | grep -v "\*.*any"
+    exit 1
+  fi
+fi
+echo "No 'any' types found"
+
+# 5. Run lint-staged (ESLint + Prettier)
+echo ""
+echo "[5/5] Running lint-staged..."
+npx lint-staged
+if [ $? -ne 0 ]; then
+  echo "ERROR: lint-staged failed"
+  exit 1
+fi
+
+echo ""
+echo "=========================================="
+echo "All pre-commit checks passed!"
+echo "=========================================="

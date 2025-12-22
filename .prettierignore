@@ -1,0 +1,34 @@
+# Dependencies
+node_modules
+
+# Build outputs
+dist
+build
+.vite
+*.min.js
+*.min.css
+
+# Package manager
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# IDE and editor
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage
+
+# Electron
+out
+release
+
+# Tailwind generated
+src/index.css

@@ -1,0 +1,134 @@
+# Performance Benchmark Workflow for Universal Session Viewer
+#
+# Runs performance benchmarks on push and PR:
+# - App startup time
+# - Session load time
+# - Search query time
+# - Analysis time
+#
+# Stores results and comments on PRs with performance comparisons
+
+name: Performance Benchmarks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  benchmark:
+    name: Run Performance Benchmarks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Run performance benchmarks
+        run: npm run benchmark
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmark-results.json
+          retention-days: 30
+
+      - name: Comment performance results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            let results;
+            try {
+              results = JSON.parse(fs.readFileSync('benchmark-results.json'));
+            } catch (error) {
+              console.log('Could not read benchmark results:', error.message);
+              return;
+            }
+
+            const formatMs = (ms) => ms !== null ? `${ms}ms` : 'N/A';
+            const getStatus = (value, threshold) => {
+              if (value === null) return 'N/A';
+              return value <= threshold ? '\\u2705' : '\\u26A0\\uFE0F';
+            };
+
+            const comment = `## Performance Benchmark Results
+
+            | Metric | Value | Target | Status |
+            |--------|-------|--------|--------|
+            | App Startup | ${formatMs(results.startup)} | <${results.thresholds.startup}ms | ${getStatus(results.startup, results.thresholds.startup)} |
+            | Session Load | ${formatMs(results.sessionLoad)} | <${results.thresholds.sessionLoad}ms | ${getStatus(results.sessionLoad, results.thresholds.sessionLoad)} |
+            | Search Query | ${formatMs(results.search)} | <${results.thresholds.search}ms | ${getStatus(results.search, results.thresholds.search)} |
+            | Analysis | ${formatMs(results.analysis)} | <${results.thresholds.analysis}ms | ${getStatus(results.analysis, results.thresholds.analysis)} |
+
+            **Summary**: ${results.summary.passed} passed, ${results.summary.failed} failed, ${results.summary.skipped} skipped
+
+            ${results.summary.failed > 0 ? '\\u26A0\\uFE0F Some benchmarks exceeded their targets' : '\\u2705 All benchmarks within targets'}
+
+            <details>
+            <summary>Detailed Results</summary>
+
+            \`\`\`json
+            ${JSON.stringify(results.details, null, 2)}
+            \`\`\`
+
+            </details>
+
+            *Timestamp: ${results.timestamp}*
+            `;
+
+            // Find existing benchmark comment
+            const { data: comments } = await github.rest.issues.listComments({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+
+            const existingComment = comments.find(c => c.body.includes('Performance Benchmark Results'));
+
+            if (existingComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                comment_id: existingComment.id,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            }
+
+      - name: Store benchmark results for trend tracking
+        if: github.ref == 'refs/heads/main'
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: 'customSmallerIsBetter'
+          output-file-path: benchmark-results.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: false
+          comment-on-alert: true
+          alert-threshold: '150%'
+          fail-on-alert: false
+        continue-on-error: true

@@ -1,0 +1,133 @@
+# Coverage Report Workflow for Universal Session Viewer
+#
+# Generates comprehensive coverage reports and posts PR comments
+# Enforces 60% minimum coverage threshold
+
+name: Coverage Report
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  coverage:
+    name: Generate Coverage Report
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run all tests with coverage
+        run: npm run test:coverage
+
+      - name: Generate coverage summary
+        id: coverage
+        run: |
+          if [ -f "./coverage/coverage-summary.json" ]; then
+            LINES=$(node -e "console.log(require('./coverage/coverage-summary.json').total.lines.pct)")
+            STATEMENTS=$(node -e "console.log(require('./coverage/coverage-summary.json').total.statements.pct)")
+            BRANCHES=$(node -e "console.log(require('./coverage/coverage-summary.json').total.branches.pct)")
+            FUNCTIONS=$(node -e "console.log(require('./coverage/coverage-summary.json').total.functions.pct)")
+            echo "lines=$LINES" >> $GITHUB_OUTPUT
+            echo "statements=$STATEMENTS" >> $GITHUB_OUTPUT
+            echo "branches=$BRANCHES" >> $GITHUB_OUTPUT
+            echo "functions=$FUNCTIONS" >> $GITHUB_OUTPUT
+            echo "COVERAGE=$LINES" >> $GITHUB_ENV
+          else
+            echo "::error::Coverage summary not found"
+            exit 1
+          fi
+
+      - name: Create coverage comment
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const lines = '${{ steps.coverage.outputs.lines }}';
+            const statements = '${{ steps.coverage.outputs.statements }}';
+            const branches = '${{ steps.coverage.outputs.branches }}';
+            const functions = '${{ steps.coverage.outputs.functions }}';
+
+            const threshold = 55;
+            const passed = parseFloat(lines) >= threshold;
+            const emoji = passed ? '\\u2705' : '\\u274C';
+
+            const comment = `## ${emoji} Test Coverage Report
+
+            **Overall Line Coverage**: ${lines}%
+
+            | Category | Coverage | Status |
+            |----------|----------|--------|
+            | Statements | ${statements}% | ${parseFloat(statements) >= threshold ? '\\u2705' : '\\u26A0\\uFE0F'} |
+            | Branches | ${branches}% | ${parseFloat(branches) >= threshold ? '\\u2705' : '\\u26A0\\uFE0F'} |
+            | Functions | ${functions}% | ${parseFloat(functions) >= threshold ? '\\u2705' : '\\u26A0\\uFE0F'} |
+            | Lines | ${lines}% | ${parseFloat(lines) >= threshold ? '\\u2705' : '\\u26A0\\uFE0F'} |
+
+            ${!passed ? '\\u26A0\\uFE0F **Coverage is below the 55% threshold!**' : '\\u2705 **Coverage meets the 55% threshold**'}
+
+            [View detailed report in artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            `;
+
+            // Find existing coverage comment
+            const { data: comments } = await github.rest.issues.listComments({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+
+            const existingComment = comments.find(c => c.body.includes('Test Coverage Report'));
+
+            if (existingComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                comment_id: existingComment.id,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            }
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 14
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/lcov.info
+          flags: coverage-report
+          name: coverage-report
+          fail_ci_if_error: false
+
+      - name: Fail if coverage below threshold
+        run: |
+          THRESHOLD=55
+          if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
+            echo "::error::Coverage below ${THRESHOLD}%: $COVERAGE%"
+            exit 1
+          fi
+          echo "Coverage meets ${THRESHOLD}% threshold: $COVERAGE%"

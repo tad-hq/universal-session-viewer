@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question / Support
+    url: https://github.com/tadasv/universal-session-viewer/discussions/categories/q-a
+    about: Ask questions and get help from the community
+  - name: Ideas / Feature Discussion
+    url: https://github.com/tadasv/universal-session-viewer/discussions/categories/ideas
+    about: Discuss feature ideas before creating a formal request
+  - name: Security Vulnerability
+    url: https://github.com/tadasv/universal-session-viewer/security/policy
+    about: Report security vulnerabilities privately (do NOT use public issues)
