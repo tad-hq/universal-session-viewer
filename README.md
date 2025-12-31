@@ -23,11 +23,12 @@
 </p>
 
 <p align="center">
-  <a href="#-features">Features</a> •
-  <a href="#-demo">Demo</a> •
-  <a href="#-installation">Installation</a> •
-  <a href="#-usage">Usage</a> •
-  <a href="#-contributing">Contributing</a>
+  <a href="#features">Features</a> •
+  <a href="#demo">Demo</a> •
+  <a href="#installation">Installation</a> •
+  <a href="#usage">Usage</a> •
+  <a href="#mcp-server">MCP</a> •
+  <a href="#contributing">Contributing</a>
 </p>
 
 ---
@@ -35,10 +36,6 @@
 ## Overview
 
 Universal Session Viewer gives you instant access to all your Claude Code sessions stored in `~/.claude/projects/`. Find any conversation in seconds with full-text search, filter by project or date, and get **AI-generated summaries** of what was accomplished. Built for developers who want to revisit past sessions, understand their coding history, or quickly resume where they left off.
-
-<p align="center">
-  <img src="docs/images/screenshot.png" alt="Universal Session Viewer Screenshot" width="800">
-</p>
 
 ---
 
@@ -56,6 +53,7 @@ Universal Session Viewer gives you instant access to all your Claude Code sessio
 | ------------------------- | ------------------------------------------------------------- |
 | **AI-Powered Summaries**  | LLM-generated session summaries via Claude CLI and Go backend |
 | **FTS5 Full-Text Search** | SQLite-powered instant search across thousands of sessions    |
+| **MCP Server**            | Let Claude Code access your session history for context       |
 | **Smart Caching**         | SHA-256 hash-based cache invalidation for analysis results    |
 | **Real-time Updates**     | File watching detects new sessions as they're created         |
 | **Continuation Chains**   | Track related sessions across multiple conversations          |
@@ -187,6 +185,33 @@ npm run build:mac:unsigned
 | **Project**      | Dropdown to select specific project                  |
 | **Date**         | Today, This Week, This Month, This Quarter, All Time |
 | **Continuation** | Filter by continuation chain                         |
+
+---
+
+## MCP Server
+
+Give Claude Code access to your session history! The included MCP server lets Claude search and read your past conversations for context.
+
+**Setup:**
+
+```bash
+cd mcp-server && npm install && npm run build
+```
+
+Add to `~/.claude/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "usv": {
+      "command": "node",
+      "args": ["/path/to/universal-session-viewer/mcp-server/dist/index.js"]
+    }
+  }
+}
+```
+
+See [mcp-server/README.md](mcp-server/README.md) for full documentation and available tools.
 
 ---
 

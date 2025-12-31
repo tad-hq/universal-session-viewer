@@ -19,7 +19,7 @@ Add to `~/.claude/settings.json`:
   "mcpServers": {
     "usv": {
       "command": "node",
-      "args": ["/Users/tadschnitzer/universal-session-viewer-public/mcp-server/dist/index.js"]
+      "args": ["/path/to/universal-session-viewer/mcp-server/dist/index.js"]
     }
   }
 }
