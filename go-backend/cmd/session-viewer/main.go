@@ -191,7 +191,30 @@ If the conversation is:
 
 Analyze the conversation above and output the structured summary. Follow the exact format shown in examples.`
 
-	summary, err := claudeWrapper.SendConversationalPrompt(ctx, prompt, "")
+	// Retry mechanism: try up to 3 times
+	const maxRetries = 3
+	var summary string
+	var err error
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		summary, err = claudeWrapper.SendConversationalPrompt(ctx, prompt, "")
+
+		if err != nil {
+			// Network/API error - no point retrying
+			break
+		}
+
+		// Check if response is valid (not conversational)
+		if !isErrorResponse(summary) {
+			// Valid summary received
+			break
+		}
+
+		// Invalid response detected, retry unless this was the last attempt
+		if attempt < maxRetries {
+			continue
+		}
+	}
 
 	if err != nil {
 		response := SessionAnalysisResponse{
@@ -203,12 +226,12 @@ Analyze the conversation above and output the structured summary. Follow the exa
 		return
 	}
 
-	// Check if response is an error message instead of a summary
+	// Check if response is still invalid after all retries
 	if isErrorResponse(summary) {
 		response := SessionAnalysisResponse{
 			SessionID: sessionID,
 			Summary:   "Analysis produced invalid response format",
-			Error:     "Response was conversational instead of analytical",
+			Error:     "Response was conversational instead of analytical after " + fmt.Sprintf("%d", maxRetries) + " attempts",
 		}
 		respondJSON(response)
 		return
