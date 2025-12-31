@@ -14,18 +14,36 @@ export function escapeHtml(text: string): string {
 /**
  * Extract a short title from summary text
  * Uses same regex as main.js extractTitleFromSummary
- * Source: v1 index.html lines 1297-1341
+ * Source: v1 index.html lines 1297-1341 (updated to handle next-line content)
  */
 export function extractShortTitle(text: string | null | undefined): string {
   if (!text || typeof text !== 'string') return 'Untitled Session';
 
-  // Same regex as main.js line 1188-1190
+  // Pattern handles both same-line and next-line content:
+  // **Domain:** content OR **Domain:**\ncontent
   const domainMatch = text.match(
-    /\*\*\s*(?:\d+\.\s*)?(?:Main Topic\/Domain|Domain|Main Topic)\s*\*\*\s*:\s*([^\n]+)|\*\*\s*(?:\d+\.\s*)?(?:Main Topic\/Domain|Domain|Main Topic)\s*:\s*\*\*\s*([^\n]+)/i
+    /\*\*\s*(?:\d+\.\s*)?(?:Main Topic\/Domain|Domain|Main Topic)\s*(?:\*\*\s*)?:\s*(?:\*\*)?\s*([^\n*]+(?:\n[^\n*]+)?)/i
   );
 
   if (domainMatch) {
-    let title = (domainMatch[1] || domainMatch[2] || '').trim();
+    let rawTitle = (domainMatch[1] || '').trim();
+
+    // Handle content that may be on the next line
+    if (rawTitle.includes('\n')) {
+      rawTitle = rawTitle.split('\n')[0].trim() || rawTitle.split('\n')[1]?.trim() || '';
+    }
+
+    // If still empty, look for content on the line after
+    if (!rawTitle) {
+      const nextLineMatch = text.match(
+        /\*\*\s*(?:\d+\.\s*)?(?:Main Topic\/Domain|Domain|Main Topic)[^*]*\*\*[:\s]*\n+([^\n*]+)/i
+      );
+      if (nextLineMatch) {
+        rawTitle = nextLineMatch[1].trim();
+      }
+    }
+
+    let title = rawTitle;
     // Remove trailing parentheticals
     title = title.replace(/\s*\([^)]+\)\s*$/, '');
     // Remove quotes

@@ -64,12 +64,31 @@ function extractTitleFromSummary(summary) {
     'coding',
   ];
 
+  // Pattern 1: **Domain:** content (same line) or **Domain:**\ncontent (next line)
+  // Pattern 2: **Domain** : content
+  // Pattern 3: **Domain : ** content
   const domainMatch = summary.match(
-    /\*\*\s*(?:\d+\.\s*)?(?:Main Topic\/Domain|Domain|Main Topic)\s*\*\*\s*:\s*([^\n]+)|\*\*\s*(?:\d+\.\s*)?(?:Main Topic\/Domain|Domain|Main Topic)\s*:\s*\*\*\s*([^\n]+)/i
+    /\*\*\s*(?:\d+\.\s*)?(?:Main Topic\/Domain|Domain|Main Topic)\s*(?:\*\*\s*)?:\s*(?:\*\*)?\s*([^\n*]+(?:\n[^\n*]+)?)/i
   );
 
   if (domainMatch) {
-    const rawTitle = (domainMatch[1] || domainMatch[2] || '').trim();
+    // Handle content that may be on the next line
+    let rawTitle = (domainMatch[1] || '').trim();
+
+    // If content was on next line, take just the first line of it
+    if (rawTitle.includes('\n')) {
+      rawTitle = rawTitle.split('\n')[0].trim() || rawTitle.split('\n')[1]?.trim() || '';
+    }
+
+    // If still empty after colon, look for content on the line after
+    if (!rawTitle) {
+      const nextLineMatch = summary.match(
+        /\*\*\s*(?:\d+\.\s*)?(?:Main Topic\/Domain|Domain|Main Topic)[^*]*\*\*[:\s]*\n+([^\n*]+)/i
+      );
+      if (nextLineMatch) {
+        rawTitle = nextLineMatch[1].trim();
+      }
+    }
 
     let title = rawTitle
       .replace(/\s*\([^)]+\)\s*$/, '')
