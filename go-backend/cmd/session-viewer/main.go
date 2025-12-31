@@ -103,85 +103,112 @@ func handleAnalyze(cfg *config.Config) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	// Retry mechanism: try up to 3 times with increasingly explicit prompts
-	const maxRetries = 3
-	var summary string
-	var err error
+	// Optimized single prompt with examples and explicit format rules
+	prompt := `<identity>
+You are a Session Analyst specializing in summarizing Claude Code (AI coding assistant) conversation logs. You produce structured, third-person analytical summaries for a desktop application that displays session metadata.
+</identity>
 
-	for attempt := 1; attempt <= maxRetries; attempt++ {
-		// Build analysis prompt with increasing explicitness on retries
-		var prompt string
-		if attempt == 1 {
-			// Initial attempt: standard prompt
-			prompt = `Analyze this Claude conversation and provide a concise summary:
+<output_format>
+You MUST output EXACTLY this format with NO variations:
 
-1. Main topic/domain (e.g., "React development", "Python scripting")
-2. Key tasks accomplished
-3. Important outcomes or decisions
-4. Session complexity (Simple/Moderate/Complex)
+**Domain:** [specific technology/domain in 2-5 words]
+**Key Tasks:** [1-3 main accomplishments, comma-separated]
+**Outcomes:** [key decisions or results achieved]
+**Complexity:** [Simple|Moderate|Complex]
 
-Keep it under 150 words. Focus only on the actual conversation content between user and assistant.
+FORMAT RULES:
+- Each field label and value MUST be on the SAME LINE
+- Domain must be specific (e.g., "React component testing" not "Development")
+- Use third-person voice throughout (no "I", "we", "you")
+- Maximum 100 words total
+</output_format>
 
-Conversation data:
-` + content
-		} else {
-			// Retry attempts: strict prompt with system/role/few-shot techniques
-			prompt = `SYSTEM: You are a professional conversation analyst. Your role is to provide objective, third-person analysis of completed conversations.
+<examples>
+<example>
+<input>
+User: I need to fix the login button - it's not redirecting after successful auth
+Assistant: I see the issue. The handleSubmit function is missing the router.push call after the API response...
+</input>
+<output>
+**Domain:** Next.js authentication flow
+**Key Tasks:** Debugged post-login redirect failure, added router.push to handleSubmit
+**Outcomes:** Login now correctly redirects to dashboard after successful authentication
+**Complexity:** Simple
+</output>
+</example>
 
-CRITICAL RULES:
-1. Write ONLY in third person (never use "I", "we", "you")
-2. Provide ANALYTICAL SUMMARY (not conversational responses)
-3. Do NOT engage, validate, question, or provide advice
-4. Do NOT start with exclamations, agreements, or disagreements (no "!", "No!", "Yes!", "You're right")
+<example>
+<input>
+User: Help me set up a new Python project with FastAPI, SQLAlchemy, and proper testing
+Assistant: I'll help you scaffold this. First, let's set up the project structure...
+</input>
+<output>
+**Domain:** Python FastAPI project scaffolding
+**Key Tasks:** Created project structure, configured SQLAlchemy models, set up pytest fixtures
+**Outcomes:** Complete FastAPI boilerplate with database integration and test infrastructure
+**Complexity:** Complex
+</output>
+</example>
 
-EXAMPLE - WRONG (Conversational):
-"No! We're not removing that functionality. Let me explain the fix..."
-"You're absolutely right! I made an error. Here's what we should do..."
+<example>
+<input>
+User: What's the difference between useMemo and useCallback?
+Assistant: Great question! useMemo memoizes a computed value, while useCallback memoizes a function reference...
+</input>
+<output>
+**Domain:** React hooks concepts
+**Key Tasks:** Explained useMemo vs useCallback distinction
+**Outcomes:** User gained understanding of React memoization patterns
+**Complexity:** Simple
+</output>
+</example>
 
-EXAMPLE - CORRECT (Analytical):
-"**Domain**: Python backend development
-**Main Topic**: Debugging structured output retry wrapper implementation
-**Key Tasks**: Resolved schema initialization issue in criterion analysis wrapper
-**Complexity**: Moderate"
+<example>
+<input>
+User: The tests are failing after I updated the schema
+Assistant: Let me check the test files... I see the issue - the mock data doesn't match the new schema fields...
+</input>
+<output>
+**Domain:** TypeScript test maintenance
+**Key Tasks:** Updated test mocks to match revised schema, fixed type assertions
+**Outcomes:** All tests passing with schema-compliant mock data
+**Complexity:** Moderate
+</output>
+</example>
+</examples>
 
-YOUR TASK: Analyze the conversation below and provide a structured summary with:
-- Main topic/domain
-- Key tasks accomplished
-- Important outcomes
-- Complexity level (Simple/Moderate/Complex)
+<edge_cases>
+If the conversation is:
+- Empty or contains only system messages: Output "**Domain:** Session initialization" with appropriate empty-state values
+- Abandoned mid-task: Summarize what was attempted, note incomplete status in Outcomes
+- Purely Q&A with no code: Focus on concepts discussed, use "Simple" complexity
+- Multiple unrelated topics: Focus on the primary/longest topic thread
+</edge_cases>
 
-Write objectively in third person. Maximum 150 words.
+<conversation>
+` + content + `
+</conversation>
 
-Conversation:
-` + content
-		}
+Analyze the conversation above and output the structured summary. Follow the exact format shown in examples.`
 
-		summary, err = claudeWrapper.SendConversationalPrompt(ctx, prompt, "")
-
-		if err != nil {
-			// Network/API error - no point retrying
-			break
-		}
-
-		// Check if response is an error message instead of a summary
-		isError := isErrorResponse(summary)
-
-		if !isError {
-			// Valid summary received
-			break
-		}
-
-		// Invalid response detected, retry unless this was the last attempt
-		if attempt < maxRetries {
-			continue
-		}
-	}
+	summary, err := claudeWrapper.SendConversationalPrompt(ctx, prompt, "")
 
 	if err != nil {
 		response := SessionAnalysisResponse{
 			SessionID: sessionID,
 			Summary:   "Analysis failed - " + err.Error(),
 			Error:     err.Error(),
+		}
+		respondJSON(response)
+		return
+	}
+
+	// Check if response is an error message instead of a summary
+	if isErrorResponse(summary) {
+		response := SessionAnalysisResponse{
+			SessionID: sessionID,
+			Summary:   "Analysis produced invalid response format",
+			Error:     "Response was conversational instead of analytical",
 		}
 		respondJSON(response)
 		return
