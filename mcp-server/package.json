@@ -1,0 +1,29 @@
+{
+  "name": "@universal-session-viewer/mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for querying Claude Code sessions from Universal Session Viewer",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "usv-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "better-sqlite3": "^11.6.0",
+    "minimatch": "^10.0.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

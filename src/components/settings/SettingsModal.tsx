@@ -1028,11 +1028,111 @@ export function SettingsModal({
                 isValidating={pathValidating.promptsDirectory}
               />
 
-              {/* Note about additional paths */}
+              {/* Exclude Paths */}
+              <div className="space-y-2">
+                <Label className="font-normal text-muted-foreground">Excluded Directories:</Label>
+                <p className="text-xs text-muted-foreground">
+                  Projects matching these patterns will be skipped during discovery. Supports glob
+                  patterns (e.g., **/node_modules, test-*)
+                </p>
+
+                {/* List of excluded paths */}
+                {(formData.paths?.excludePaths || []).length > 0 && (
+                  <div className="space-y-1">
+                    {formData.paths.excludePaths.map((path, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center gap-2 rounded-md bg-muted px-3 py-1.5"
+                      >
+                        <code className="flex-1 text-sm">{path}</code>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="size-6 p-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => {
+                            const newExcludePaths = formData.paths.excludePaths.filter(
+                              (_, i) => i !== index
+                            );
+                            onFormDataChange({
+                              ...formData,
+                              paths: { ...formData.paths, excludePaths: newExcludePaths },
+                            });
+                          }}
+                          aria-label={`Remove ${path}`}
+                        >
+                          <svg
+                            className="size-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add new exclude path */}
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    placeholder="e.g., **/archived, test-project"
+                    className="flex-1 font-mono text-sm"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const input = e.currentTarget;
+                        const value = input.value.trim();
+                        if (value && !formData.paths?.excludePaths?.includes(value)) {
+                          onFormDataChange({
+                            ...formData,
+                            paths: {
+                              ...formData.paths,
+                              excludePaths: [...(formData.paths?.excludePaths || []), value],
+                            },
+                          });
+                          input.value = '';
+                        }
+                      }
+                    }}
+                    aria-label="Add excluded directory pattern"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                      const value = input.value.trim();
+                      if (value && !formData.paths?.excludePaths?.includes(value)) {
+                        onFormDataChange({
+                          ...formData,
+                          paths: {
+                            ...formData.paths,
+                            excludePaths: [...(formData.paths?.excludePaths || []), value],
+                          },
+                        });
+                        input.value = '';
+                      }
+                    }}
+                  >
+                    Add
+                  </Button>
+                </div>
+              </div>
+
+              {/* Note about path changes */}
               <div className="rounded-md bg-muted p-3 text-xs text-muted-foreground">
-                <strong>Note:</strong> Additional discovery paths and exclude patterns can be
-                configured in the settings file. Changes to path settings take effect after
-                restarting the app.
+                <strong>Note:</strong> Changes to path settings take effect after restarting the app
+                or refreshing the session list.
               </div>
             </fieldset>
 

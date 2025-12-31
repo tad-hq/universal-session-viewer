@@ -1064,6 +1064,12 @@ class SessionViewerApp {
         pollInterval: 100,
       },
       depth: 2, // Only watch 2 levels deep (projects/project-name/*.jsonl)
+      // Filter out excluded paths at the chokidar level for efficiency
+      ignored: (filePath) => {
+        // Extract the project directory path from the file path
+        const projectPath = path.dirname(filePath);
+        return this.shouldExcludePath(projectPath);
+      },
     });
 
     // Debounce map to batch rapid changes
@@ -1097,6 +1103,13 @@ class SessionViewerApp {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(fileName)) {
       return; // Skip agent files and non-UUID files
+    }
+
+    // Check if this path should be excluded (respects excludePaths setting)
+    const projectPath = path.dirname(filePath);
+    if (this.shouldExcludePath(projectPath)) {
+      this.debugLog(`Skipping excluded path in file watcher: ${projectPath}`);
+      return;
     }
 
     // Skip temp directories (macOS temp folders)
@@ -1276,6 +1289,13 @@ class SessionViewerApp {
     const fileName = path.basename(filePath, '.jsonl');
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(fileName)) {
+      return;
+    }
+
+    // Check if this path should be excluded (respects excludePaths setting)
+    const projectPath = path.dirname(filePath);
+    if (this.shouldExcludePath(projectPath)) {
+      this.debugLog(`Skipping excluded path in file watcher (delete): ${projectPath}`);
       return;
     }
 
