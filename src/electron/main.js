@@ -49,7 +49,7 @@ const {
 } = require('./database/quota');
 
 // Phase 2: Utils modules (pure functions extracted from SessionViewerApp class)
-const { expandPath } = require('./utils/security');
+const { expandPath, setAdditionalAllowedPaths } = require('./utils/security');
 
 const { extractTextContent, extractTitleFromSummary } = require('./utils/parsing');
 
@@ -707,6 +707,9 @@ class SessionViewerApp {
 
   loadSettings() {
     this.settings = loadSettingsFromDb(this.db);
+    // Update security module with additional allowed paths
+    const additionalPaths = this.settings?.paths?.additionalDiscoveryPaths || [];
+    setAdditionalAllowedPaths(additionalPaths);
   }
 
   saveSetting(key, value) {
@@ -717,6 +720,9 @@ class SessionViewerApp {
   saveAllSettings(settings) {
     saveAllSettingsToDb(this.db, settings);
     this.settings = { ...this.settings, ...settings };
+    // Update security module with additional allowed paths
+    const additionalPaths = settings?.paths?.additionalDiscoveryPaths || [];
+    setAdditionalAllowedPaths(additionalPaths);
   }
 
   getAllSettings() {

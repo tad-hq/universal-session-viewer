@@ -19,7 +19,35 @@ function register(appInstance) {
 
   ipcMain.handle('save-settings', async (_event, settings) => {
     try {
-      await appInstance.saveAllSettings(settings);
+      // Get old settings BEFORE saving to detect changes
+      const oldSettings = appInstance.getAllSettings();
+
+      // Save new settings to database
+      appInstance.saveAllSettings(settings);
+
+      // Check if discovery paths changed
+      const pathsChanged = hasDiscoveryPathsChanged(
+        oldSettings.paths?.additionalDiscoveryPaths,
+        settings.paths?.additionalDiscoveryPaths
+      );
+
+      if (pathsChanged) {
+        safeLog.log('[Settings] Discovery paths changed, restarting file watcher...');
+
+        // Stop existing watcher (synchronous - NO await)
+        appInstance.stopFileWatcher();
+
+        // Start with new paths (getAllDiscoveryPaths reads updated settings)
+        await appInstance.startFileWatcher();
+
+        safeLog.log('[Settings] File watcher restarted successfully');
+
+        // Trigger session rediscovery after watcher restart
+        safeLog.log('[Settings] Triggering session rediscovery...');
+        const sessions = await appInstance.findAllSessions();
+        safeLog.log(`[Settings] Rediscovery complete: ${sessions.length} sessions found`);
+      }
+
       return { success: true };
     } catch (error) {
       safeLog.error('Error saving settings:', error);
@@ -128,6 +156,46 @@ function register(appInstance) {
   });
 
   // Note: get-platform handler is registered in index.js (terminal handlers)
+}
+
+/**
+ * Helper function to check if additionalDiscoveryPaths changed
+ * Compares two arrays in an order-independent way
+ *
+ * @param {Array<string>} oldPaths - Old paths (may be undefined)
+ * @param {Array<string>} newPaths - New paths (may be undefined)
+ * @returns {boolean} - True if paths changed, false otherwise
+ */
+function hasDiscoveryPathsChanged(oldPaths = [], newPaths = []) {
+  // Normalize undefined to empty array
+  const oldArray = oldPaths || [];
+  const newArray = newPaths || [];
+
+  // Quick check: different lengths = changed
+  if (oldArray.length !== newArray.length) {
+    return true;
+  }
+
+  // Convert to Sets for order-independent comparison
+  const oldSet = new Set(oldArray);
+  const newSet = new Set(newArray);
+
+  // Check if old has any paths not in new
+  for (const path of oldSet) {
+    if (!newSet.has(path)) {
+      return true;
+    }
+  }
+
+  // Check if new has any paths not in old
+  for (const path of newSet) {
+    if (!oldSet.has(path)) {
+      return true;
+    }
+  }
+
+  // No differences found
+  return false;
 }
 
 module.exports = { register };

@@ -16,6 +16,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import { AdditionalPathsSection } from './AdditionalPathsSection';
 import { ClaudeCodeSettings } from './ClaudeCodeSettings';
 import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
@@ -1127,6 +1128,14 @@ export function SettingsModal({
                     Add
                   </Button>
                 </div>
+              </div>
+
+              {/* Additional Discovery Paths */}
+              <div className="space-y-2">
+                <AdditionalPathsSection
+                  formData={formData}
+                  onFormDataChange={onFormDataChange}
+                />
               </div>
 
               {/* Note about path changes */}

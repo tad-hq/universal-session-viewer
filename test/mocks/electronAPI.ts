@@ -208,6 +208,8 @@ export interface MockElectronAPI extends ElectronAPI {
     getSessionCount: Mock;
     getAvailableProjects: Mock;
     removeAllListeners: Mock;
+    validatePath: Mock;
+    browseDirectory: Mock;
   };
 }
 
@@ -323,6 +325,17 @@ export function createMockElectronAPI(): MockElectronAPI {
         'analysis-error': [],
       };
     }),
+
+    // Path validation and directory browsing
+    validatePath: vi.fn().mockImplementation(async (path: string) => ({
+      valid: true,
+      expandedPath: path,
+    })),
+
+    browseDirectory: vi.fn().mockResolvedValue({
+      canceled: false,
+      path: '/mock/selected/path',
+    }),
   };
 
   const mockAPI: MockElectronAPI = {
@@ -360,6 +373,8 @@ export function createMockElectronAPI(): MockElectronAPI {
     getSessionCount: mocks.getSessionCount,
     getAvailableProjects: mocks.getAvailableProjects,
     removeAllListeners: mocks.removeAllListeners,
+    validatePath: mocks.validatePath,
+    browseDirectory: mocks.browseDirectory,
 
     __mocks__: mocks,
   };

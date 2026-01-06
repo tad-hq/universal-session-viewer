@@ -312,6 +312,16 @@ npm test
 
 ---
 
+## Known Issues
+
+| Issue | Description | Workaround |
+| ----- | ----------- | ---------- |
+| **Non-local drives** | Sessions stored on network drives, external drives, or symlinked paths may not be detected properly | Keep `.claude/projects/` on your local drive |
+
+Have an issue? [Report it here](https://github.com/tad-hq/universal-session-viewer/issues/new?template=bug_report.yml).
+
+---
+
 ## License
 
 [AGPL-3.0](LICENSE) - Created by [Tad Schnitzer](https://github.com/tad-hq)

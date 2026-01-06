@@ -1,6 +1,13 @@
 const path = require('path');
 const os = require('os');
 
+// Additional allowed paths (populated from settings at runtime)
+let additionalAllowedPaths = [];
+
+function setAdditionalAllowedPaths(paths) {
+  additionalAllowedPaths = paths || [];
+}
+
 function expandPath(inputPath) {
   if (!inputPath) return inputPath;
 
@@ -25,6 +32,8 @@ function expandPath(inputPath) {
     path.join(os.homedir(), '.claude-m'),
     '/tmp',
     '/var/tmp',
+    // Include user-configured additional discovery paths
+    ...additionalAllowedPaths,
   ];
 
   const isWithinAllowedBase = allowedBases.some((base) => {
@@ -67,4 +76,4 @@ function escapeForShell(str) {
   return "'" + str.replace(/'/g, "'\"'\"'") + "'";
 }
 
-module.exports = { expandPath, validateSessionId, escapeForShell };
+module.exports = { expandPath, validateSessionId, escapeForShell, setAdditionalAllowedPaths };
