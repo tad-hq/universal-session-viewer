@@ -38,7 +38,8 @@
     "personal-docs/",
     "playwright.config.ts",
     "vitest.config.ts",
-    "vitest.config.electron.ts"
+    "vitest.config.electron.ts",
+    "mcp-server/"
   ],
   "overrides": [
     {
