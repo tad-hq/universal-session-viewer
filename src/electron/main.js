@@ -52,6 +52,7 @@ const {
 const { expandPath, setAdditionalAllowedPaths } = require('./utils/security');
 
 const { extractTextContent, extractTitleFromSummary } = require('./utils/parsing');
+const { hasConversationMessages, getLastNLines } = require('./utils/stream-reader');
 
 const { fallbackPathResolution } = require('./utils/helpers');
 
@@ -1488,43 +1489,18 @@ class SessionViewerApp {
 
                   const filePath = path.join(projectPath, file);
 
-                  // Read file content to determine if it should be discovered
+                  // Check if file has conversation messages (stream-based to avoid OOM)
                   try {
-                    // Just verify we can read the file
                     await fsPromises.access(filePath);
                     const stats = await fsPromises.stat(filePath);
-                    const content = await fsPromises.readFile(filePath, 'utf8');
-                    const lines = content.trim().split('\n');
 
-                    let hasSummary = false;
-                    let hasSystem = false;
-                    let hasUserOrAssistant = false;
+                    // Use streaming check instead of loading entire file
+                    // This prevents OOM for multi-GB files (2.1GB+ sessions)
+                    const hasUserOrAssistant = await hasConversationMessages(filePath);
 
-                    for (const line of lines) {
-                      try {
-                        const parsed = JSON.parse(line);
-                        if (parsed.type === 'summary' || parsed.data_type === 'summary') {
-                          hasSummary = true;
-                        } else if (parsed.type === 'system' || parsed.data_type === 'system') {
-                          hasSystem = true;
-                        } else if (parsed.type === 'user' || parsed.type === 'assistant') {
-                          hasUserOrAssistant = true;
-                          break;
-                        }
-                      } catch {
-                        // Skip malformed JSON lines
-                      }
-                    }
-
-                    // Filter out sessions with no meaningful conversation data
-                    // Skip any session that doesn't have actual user/assistant messages
-                    // This includes:
-                    // 1. Empty files
-                    // 2. Summary-only sessions (collapsed with no original messages)
-                    // 3. Metadata-only sessions (file-history-snapshot, etc.)
-                    if (lines.length === 0 || !hasUserOrAssistant) {
+                    if (!hasUserOrAssistant) {
                       this.debugLog(
-                        `Skipping session with no conversation data: ${sessionId} (lines: ${lines.length}, hasUserOrAssistant: ${hasUserOrAssistant}, hasSummary: ${hasSummary}, hasSystem: ${hasSystem})`
+                        `Skipping session with no conversation data: ${sessionId}`
                       );
                       continue;
                     }
@@ -2705,41 +2681,53 @@ class SessionViewerApp {
 
   async loadMessagesFromFile(filePath) {
     try {
-      // For full message load, still read entire file but with better error handling
-      const content = await fsPromises.readFile(filePath, 'utf8');
-      const lines = content.trim().split('\n');
-
       const messages = [];
 
-      for (const line of lines) {
-        try {
-          const parsed = JSON.parse(line);
+      // Use streaming to handle large files without OOM
+      await new Promise((resolve, reject) => {
+        const fileStream = require('fs').createReadStream(filePath, { encoding: 'utf8' });
+        const readline = require('readline');
+        const rl = readline.createInterface({
+          input: fileStream,
+          crlfDelay: Infinity,
+        });
 
-          if (parsed.type === 'user') {
-            const userContent = extractTextContent(parsed.message?.content || '');
-            if (userContent) {
-              messages.push({
-                type: 'user',
-                content: userContent,
-                timestamp: parsed.timestamp,
-                uuid: parsed.uuid,
-              });
+        rl.on('line', (line) => {
+          if (!line.trim()) return;
+
+          try {
+            const parsed = JSON.parse(line);
+
+            if (parsed.type === 'user') {
+              const userContent = extractTextContent(parsed.message?.content || '');
+              if (userContent) {
+                messages.push({
+                  type: 'user',
+                  content: userContent,
+                  timestamp: parsed.timestamp,
+                  uuid: parsed.uuid,
+                });
+              }
+            } else if (parsed.type === 'assistant') {
+              const assistantContent = extractTextContent(parsed.message?.content || '');
+              if (assistantContent) {
+                messages.push({
+                  type: 'assistant',
+                  content: assistantContent,
+                  timestamp: parsed.timestamp,
+                  uuid: parsed.uuid,
+                });
+              }
             }
-          } else if (parsed.type === 'assistant') {
-            const assistantContent = extractTextContent(parsed.message?.content || '');
-            if (assistantContent) {
-              messages.push({
-                type: 'assistant',
-                content: assistantContent,
-                timestamp: parsed.timestamp,
-                uuid: parsed.uuid,
-              });
-            }
+          } catch (parseError) {
+            // Skip malformed lines
           }
-        } catch (parseError) {
-          continue;
-        }
-      }
+        });
+
+        rl.on('close', () => resolve());
+        rl.on('error', reject);
+        fileStream.on('error', reject);
+      });
 
       return messages;
     } catch (error) {
