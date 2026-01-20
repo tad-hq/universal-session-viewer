@@ -96,7 +96,7 @@
     "zustand": "^4.4.7"
   },
   "devDependencies": {
-    "@electron/notarize": "^2.2.1",
+    "@electron/notarize": "^3.1.1",
     "@electron/rebuild": "^4.0.2",
     "@playwright/test": "^1.42.1",
     "@release-it/conventional-changelog": "^10.0.4",
